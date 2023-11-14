@@ -64,6 +64,7 @@ public class CPTest {
 
     @Test
     public void testInterprocedural() {
+        // we have no learning interprocedural analysis right now, ignore it.
         testCP("Interprocedural");
     }
 }

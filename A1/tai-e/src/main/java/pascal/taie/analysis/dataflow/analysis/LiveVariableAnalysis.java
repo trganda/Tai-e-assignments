@@ -32,7 +32,7 @@ import pascal.taie.ir.stmt.Stmt;
  * Implementation of classic live variable analysis.
  */
 public class LiveVariableAnalysis extends
-        AbstractDataflowAnalysis<Stmt, SetFact<Var>> {
+    AbstractDataflowAnalysis<Stmt, SetFact<Var>> {
 
     public static final String ID = "livevar";
 
@@ -47,24 +47,43 @@ public class LiveVariableAnalysis extends
 
     @Override
     public SetFact<Var> newBoundaryFact(CFG<Stmt> cfg) {
-        // TODO - finish me
-        return null;
+        return new SetFact<Var>();
     }
 
     @Override
     public SetFact<Var> newInitialFact() {
-        // TODO - finish me
-        return null;
+        return new SetFact<Var>();
     }
 
     @Override
     public void meetInto(SetFact<Var> fact, SetFact<Var> target) {
-        // TODO - finish me
+        target.union(fact);
     }
 
     @Override
     public boolean transferNode(Stmt stmt, SetFact<Var> in, SetFact<Var> out) {
-        // TODO - finish me
-        return false;
+        SetFact<Var> inCopy = in.copy();
+
+        SetFact<Var> tempOut = out.copy();
+        stmt.getDef().ifPresent(def -> {
+            if (def instanceof Var) {
+                tempOut.remove((Var) def);
+            }
+        });
+        stmt.getUses().forEach(e -> {
+            if (e instanceof Var) {
+                tempOut.add((Var) e);
+            } else {
+                e.getUses().forEach(u -> {
+                    if (u instanceof Var) {
+                        tempOut.add((Var) u);
+                    }
+                });
+            }
+        });
+
+        in.clear();
+        in.union(tempOut);
+        return !inCopy.equals(in);
     }
 }
