@@ -34,6 +34,7 @@ import pascal.taie.analysis.graph.cfg.Edge;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.IR;
 import pascal.taie.ir.exp.*;
+import pascal.taie.ir.stmt.AssignStmt;
 import pascal.taie.ir.stmt.If;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.ir.stmt.SwitchStmt;
@@ -63,16 +64,23 @@ public class DeadCodeDetection extends MethodAnalysis {
         // keep statements (dead code) sorted in the resulting set
         Set<Stmt> deadCode = new TreeSet<>(Comparator.comparing(Stmt::getIndex));
 
-        // data-flow dead code
+        // data-flow unreachable node
         Set<Stmt> unreachable = new HashSet<>(cfg.getNodes());
+        // traversed nodes
+        Map<Stmt, Boolean> traversed = new HashMap<>();
 
         Stack<Stmt> worklist = new Stack<>();
         Stmt entry = cfg.getEntry();
         worklist.add(entry);
+
         unreachable.remove(entry);
 
         while (!worklist.isEmpty()) {
             Stmt stmt = worklist.pop();
+            if (Boolean.TRUE.equals(traversed.putIfAbsent(stmt, true))) {
+                continue;
+            }
+
             cfg.getOutEdgesOf(stmt).forEach(e -> {
                 worklist.add(e.getTarget());
                 unreachable.remove(e.getTarget());
@@ -106,6 +114,7 @@ public class DeadCodeDetection extends MethodAnalysis {
                     if (defaultCase.get()) {
                         // all cases are unreachable
                         ((SwitchStmt) stmt).getCaseTargets().forEach(t -> {
+                            // successor is dead code
                             worklist.remove(t.second());
                             unreachable.add(t.second());
                         });
@@ -113,6 +122,7 @@ public class DeadCodeDetection extends MethodAnalysis {
                         // only the default case and other cases is unreachable
                         ((SwitchStmt) stmt).getCaseTargets().forEach(t -> {
                             if (t.first() != caseVal.get()) {
+                                // successor is dead code
                                 worklist.remove(t.second());
                                 unreachable.add(t.second());
                             }
@@ -122,12 +132,21 @@ public class DeadCodeDetection extends MethodAnalysis {
                         unreachable.add(defaultStmt);
                     }
                 }
+            } else if (stmt instanceof AssignStmt<?,?>) {
+                SetFact<Var> facts = liveVars.getOutFact(stmt);
+                stmt.getDef().ifPresent(l -> {
+                    if (l instanceof Var && !facts.contains((Var)l)) {
+                        unreachable.add(stmt);
+                    }
+                });
             }
         }
 
         // control flow unreachable node
         unreachable.forEach(n -> {
-            deadCode.add(n);
+            if (cfg.getExit() != n) {
+                deadCode.add(n);
+            }
         });
 
         return deadCode;
