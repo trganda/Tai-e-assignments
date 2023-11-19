@@ -89,18 +89,8 @@ public class ConstantPropagation extends
 
         stmt.getDef().ifPresent(def -> {
             stmt.getUses().forEach(use -> {
-                // only processing Var, IntLiteral and BinaryExp
-                if (use instanceof Var) {
-                    // get value from in fact
-                    out.update((Var) def, in.get((Var) use));
-                } else if (use instanceof IntLiteral) {
-                    out.update((Var) def, Value.makeConstant(((IntLiteral) use).getValue()));
-                } else if (use instanceof BinaryExp) {
-                    Value val = evaluate(use, in);
-                    // the update operation has done the kill and gen,
-                    // since if a value was already exists, it will be overwritten.
-                    out.update((Var) def, val);
-                }
+                // only processing Var, IntLiteral and BinaryExp, NAC for other case
+                out.update((Var) def, evaluate(use, in));
             });
         });
 
@@ -135,19 +125,26 @@ public class ConstantPropagation extends
     public static Value evaluate(Exp exp, CPFact in) {
         Value value = Value.getNAC();
 
-        Var left = ((BinaryExp) exp).getOperand1();
-        Var right = ((BinaryExp) exp).getOperand2();
-        if (canHoldInt(left) && canHoldInt(right) && in.get(left).isConstant() && in.get(right).isConstant()) {
-            int leftVal = in.get(left).getConstant();
-            int rightVal = in.get(right).getConstant();
-            if (exp instanceof ArithmeticExp) {
-                value = artifactEvaluate(exp, leftVal, rightVal);
-            } else if (exp instanceof BitwiseExp) {
-                value = bitwiseEvaluate(exp, leftVal, rightVal);
-            } else if (exp instanceof ConditionExp) {
-                value = conditionEvaluate(exp, leftVal, rightVal);
-            } else if (exp instanceof ShiftExp) {
-                value = shiftEvaluate(exp, leftVal, rightVal);
+        if (exp instanceof Var) {
+            // get value from in fact
+            value = in.get((Var) exp);
+        } else if (exp instanceof IntLiteral) {
+            value = Value.makeConstant(((IntLiteral) exp).getValue());
+        } else if (exp instanceof BinaryExp) {
+            Var left = ((BinaryExp) exp).getOperand1();
+            Var right = ((BinaryExp) exp).getOperand2();
+            if (canHoldInt(left) && canHoldInt(right) && in.get(left).isConstant() && in.get(right).isConstant()) {
+                int leftVal = in.get(left).getConstant();
+                int rightVal = in.get(right).getConstant();
+                if (exp instanceof ArithmeticExp) {
+                    value = artifactEvaluate(exp, leftVal, rightVal);
+                } else if (exp instanceof BitwiseExp) {
+                    value = bitwiseEvaluate(exp, leftVal, rightVal);
+                } else if (exp instanceof ConditionExp) {
+                    value = conditionEvaluate(exp, leftVal, rightVal);
+                } else if (exp instanceof ShiftExp) {
+                    value = shiftEvaluate(exp, leftVal, rightVal);
+                }
             }
         }
 
