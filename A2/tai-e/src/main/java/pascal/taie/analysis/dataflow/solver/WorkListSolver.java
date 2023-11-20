@@ -25,6 +25,7 @@ package pascal.taie.analysis.dataflow.solver;
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
+import pascal.taie.analysis.graph.cfg.Edge;
 
 import java.util.List;
 import java.util.Stack;
@@ -38,13 +39,11 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
         Stack<Node> workList = new Stack<>();
-        List<Node> temp = cfg.getNodes().stream().toList();
-        for (int i = cfg.getNodes().size() - 1; i >= 0; i--) {
-            workList.add(temp.get(i));
-        }
+        workList.add(cfg.getEntry());
 
         while (!workList.isEmpty()) {
             Node node = workList.pop();
+            cfg.getOutEdgesOf(node).stream().map(Edge<Node>::getTarget).forEach(workList::add);
             // meet out of all predecessors to the current node's in
             Fact in = result.getInFact(node);
             cfg.getPredsOf(node).forEach(n -> this.analysis.meetInto(result.getOutFact(n), in));

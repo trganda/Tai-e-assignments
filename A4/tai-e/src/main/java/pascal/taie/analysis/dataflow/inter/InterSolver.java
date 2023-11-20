@@ -23,12 +23,11 @@
 package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
-import pascal.taie.analysis.graph.icfg.ICFG;
-import pascal.taie.util.collection.SetQueue;
+import pascal.taie.analysis.graph.icfg.*;
 
+import java.util.List;
 import java.util.Queue;
-import java.util.Set;
-import java.util.stream.Collectors;
+import java.util.Stack;
 
 /**
  * Solver for inter-procedural data-flow analysis.
@@ -59,10 +58,41 @@ class InterSolver<Method, Node, Fact> {
     }
 
     private void initialize() {
-        // TODO - finish me
+        for (Node node : icfg) {
+            result.setOutFact(node, analysis.newInitialFact());
+            result.setInFact(node, analysis.newInitialFact());
+        }
+        // initialize entry node of each entry method
+        icfg.entryMethods().forEach(m -> {
+            result.setOutFact(icfg.getEntryOf(m), analysis.newBoundaryFact(icfg.getEntryOf(m)));
+        });
     }
 
     private void doSolve() {
-        // TODO - finish me
+        Stack<Node> workList = new Stack<>();
+
+        icfg.entryMethods().forEach(m -> {
+            workList.push(icfg.getEntryOf(m));
+        });
+
+        while (!workList.isEmpty()) {
+            Node node = workList.pop();
+            icfg.getOutEdgesOf(node).stream().map(ICFGEdge::getTarget).forEach(workList::push);
+            // meet out of all predecessors to the current node's in
+            Fact in = result.getInFact(node);
+            // meet out of all transferred predecessors to the current node's in
+            icfg.getInEdgesOf(node).forEach(e -> {
+                this.analysis.meetInto(analysis.transferEdge(e, result.getOutFact(e.getSource())), in);
+            });
+
+            result.setInFact(node, in);
+
+            // transfer node
+            boolean changed = this.analysis.transferNode(node, in, result.getOutFact(node));
+            if (changed) {
+                // push back to worklist
+                workList.push(node);
+            }
+        }
     }
 }

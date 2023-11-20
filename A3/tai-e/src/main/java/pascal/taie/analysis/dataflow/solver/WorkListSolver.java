@@ -25,6 +25,7 @@ package pascal.taie.analysis.dataflow.solver;
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
+import pascal.taie.analysis.graph.cfg.Edge;
 
 import java.util.List;
 import java.util.Set;
@@ -55,7 +56,7 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
             boolean changed = this.analysis.transferNode(node, in, result.getOutFact(node));
             if (changed) {
                 // push back to worklist
-                workList.add(node);
+                workList.push(node);
             }
         }
     }
