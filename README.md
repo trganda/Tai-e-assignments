@@ -2,10 +2,13 @@
   <a href="https://tai-e.pascal-lab.net/">
     <img src="https://tai-e.pascal-lab.net/o-tai-e.webp" height="200">
   </a>
-
-## Tai-e Assignments for Static Program Analysis
 </div>
 
-### Getting Started
+## Tai-e Assignments for Static Program Analysis
 
-If you want to do the assignments, please start with "*Overview of Tai-e Assignments*" [[中文](https://tai-e.pascal-lab.net/intro/overview.html)][[English](https://tai-e.pascal-lab.net/en/intro/overview.html)].
+本仓库用于记录[南京大学静态程序分析课程](https://tai-e.pascal-lab.net/)的实践作业的答案，答案未提交 OJ 测试，仅供参考。
+
+作业共分为 8 部分，
+
+### Contents
+

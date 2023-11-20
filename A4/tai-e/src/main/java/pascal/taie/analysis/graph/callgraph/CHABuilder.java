@@ -30,9 +30,9 @@ import pascal.taie.language.classes.JClass;
 import pascal.taie.language.classes.JMethod;
 import pascal.taie.language.classes.Subsignature;
 
-import java.util.ArrayDeque;
-import java.util.Queue;
+import java.util.HashSet;
 import java.util.Set;
+import java.util.Stack;
 
 /**
  * Implementation of the CHA algorithm.
@@ -50,7 +50,28 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
     private CallGraph<Invoke, JMethod> buildCallGraph(JMethod entry) {
         DefaultCallGraph callGraph = new DefaultCallGraph();
         callGraph.addEntryMethod(entry);
-        // TODO - finish me
+
+        Stack<JMethod> stack = new Stack<>();
+        stack.add(entry);
+        while (!stack.isEmpty()) {
+            JMethod current = stack.pop();
+            if (callGraph.addReachableMethod(current)) {
+                Set<Invoke> callSites = callGraph.getCallSitesIn(current);
+                if (callSites.isEmpty()) {
+                    continue;
+                }
+                callSites.forEach(callSite -> {
+                    Set<JMethod> callees = resolve(callSite);
+                    if (callees != null) {
+                        callees.forEach(callee -> {
+                            callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(callSite), callSite, callee));
+                            stack.add(callee);
+                        });
+                    }
+                });
+            }
+        }
+
         return callGraph;
     }
 
@@ -58,18 +79,68 @@ class CHABuilder implements CGBuilder<Invoke, JMethod> {
      * Resolves call targets (callees) of a call site via CHA.
      */
     private Set<JMethod> resolve(Invoke callSite) {
-        // TODO - finish me
-        return null;
+        Set<JMethod> ret = new HashSet<>();
+
+        MethodRef methodRef = callSite.getMethodRef();
+        CallKind callKind = CallGraphs.getCallKind(callSite);
+
+        JMethod m = null;
+        switch (callKind) {
+            case STATIC, SPECIAL:
+                m = dispatch(methodRef.getDeclaringClass(), methodRef.getSubsignature());
+                if (m != null) {
+                    ret.add(m);
+                }
+                break;
+            case VIRTUAL, INTERFACE:
+                JClass clazz = methodRef.getDeclaringClass();
+                // find inside the class
+                m = dispatch(clazz, methodRef.getSubsignature());
+                if (m != null) {
+                    ret.add(m);
+                }
+                // find all subclasses/implementors of the class
+                Stack<JClass> stack = new Stack<>();
+                stack.addAll(hierarchy.getDirectSubclassesOf(clazz));
+                if (clazz.isInterface()) {
+                    stack.addAll(hierarchy.getDirectImplementorsOf(clazz));
+                    stack.addAll(hierarchy.getDirectSubinterfacesOf(clazz));
+                }
+                while (!stack.isEmpty()) {
+                    JClass c = stack.pop();
+                    m = dispatch(c, methodRef.getSubsignature());
+                    if (m != null) {
+                        ret.add(m);
+                    }
+
+                    stack.addAll(hierarchy.getDirectSubclassesOf(c));
+                    if (c.isInterface()) {
+                        stack.addAll(hierarchy.getDirectImplementorsOf(c));
+                        stack.addAll(hierarchy.getDirectSubinterfacesOf(c));
+                    }
+                }
+                break;
+        }
+
+        return ret;
     }
 
     /**
-     * Looks up the target method based on given class and method subsignature.
+     * Looks up the target method based on given class and the method subsignature.
      *
      * @return the dispatched target method, or null if no satisfying method
      * can be found.
      */
     private JMethod dispatch(JClass jclass, Subsignature subsignature) {
-        // TODO - finish me
+        JMethod ret = jclass.getDeclaredMethod(subsignature);
+        if (ret != null && !ret.isAbstract()) {
+            return ret;
+        }
+
+        if (jclass.getSuperClass() != null) {
+            return dispatch(jclass.getSuperClass(), subsignature);
+        }
+
         return null;
     }
 }
