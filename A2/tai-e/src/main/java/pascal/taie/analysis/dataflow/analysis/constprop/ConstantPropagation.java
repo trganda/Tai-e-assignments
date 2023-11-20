@@ -27,6 +27,7 @@ import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.exp.*;
 import pascal.taie.ir.stmt.Stmt;
+import pascal.taie.language.type.ArrayType;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
 
@@ -49,7 +50,11 @@ public class ConstantPropagation extends
         CPFact fact = new CPFact();
 
         // init the params to NAC for safety
-        cfg.getIR().getParams().forEach(p -> fact.update(p, Value.getNAC()));
+        cfg.getIR().getParams().forEach(p -> {
+            if (p.getType() instanceof PrimitiveType) {
+                fact.update(p, Value.getNAC());
+            }
+        });
         return fact;
     }
 
