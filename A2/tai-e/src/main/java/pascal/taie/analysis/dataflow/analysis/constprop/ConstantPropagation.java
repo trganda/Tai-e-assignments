@@ -49,7 +49,11 @@ public class ConstantPropagation extends
         CPFact fact = new CPFact();
 
         // init the params to NAC for safety
-        cfg.getIR().getParams().forEach(p -> fact.update(p, Value.getNAC()));
+        cfg.getIR().getParams().forEach(p -> {
+            if (p.getType() instanceof PrimitiveType) {
+                fact.update(p, Value.getNAC());
+            }
+        });
         return fact;
     }
 
@@ -71,8 +75,8 @@ public class ConstantPropagation extends
      */
     public Value meetValue(Value v1, Value v2) {
         Value ret = Value.getNAC();
-        if (v1.isNAC() || v2.isNAC()) {
-            ret = Value.getNAC();
+        if (v1.isConstant() && v2.isNAC()) {
+            ret = v1;
         } else if (v1.isUndef() || v2.isUndef()) {
             ret = v1.isUndef() ? v2 : v1;
         } else if (v1.isConstant() && v2.isConstant() && v1.getConstant() == v2.getConstant()) {

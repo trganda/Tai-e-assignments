@@ -23,11 +23,11 @@
 package pascal.taie.analysis.dataflow.inter;
 
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
-import pascal.taie.analysis.graph.icfg.*;
+import pascal.taie.analysis.graph.icfg.ICFG;
 
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Queue;
-import java.util.Stack;
 
 /**
  * Solver for inter-procedural data-flow analysis.
@@ -69,30 +69,28 @@ class InterSolver<Method, Node, Fact> {
     }
 
     private void doSolve() {
-        Stack<Node> workList = new Stack<>();
+        List<Node> wl = new LinkedList<>();
+        wl.addAll(icfg.getNodes());
 
-        icfg.entryMethods().forEach(m -> {
-            workList.push(icfg.getEntryOf(m));
-        });
+        while (!wl.isEmpty()) {
+            wl.stream().findFirst().ifPresent(node -> {
+                // meet out of all predecessors to the current node's in
+                Fact in = result.getInFact(node);
+                // meet out of all transferred predecessors to the current node's in
+                icfg.getInEdgesOf(node).forEach(e -> {
+                    this.analysis.meetInto(analysis.transferEdge(e, result.getOutFact(e.getSource())), in);
+                });
+                // update in of node
+                result.setInFact(node, in);
 
-        while (!workList.isEmpty()) {
-            Node node = workList.pop();
-            icfg.getOutEdgesOf(node).stream().map(ICFGEdge::getTarget).forEach(workList::push);
-            // meet out of all predecessors to the current node's in
-            Fact in = result.getInFact(node);
-            // meet out of all transferred predecessors to the current node's in
-            icfg.getInEdgesOf(node).forEach(e -> {
-                this.analysis.meetInto(analysis.transferEdge(e, result.getOutFact(e.getSource())), in);
+                // transfer node
+                boolean changed = this.analysis.transferNode(node, in, result.getOutFact(node));
+                if (changed) {
+                    // push successors to wl
+                    wl.addAll(icfg.getSuccsOf(node));
+                }
+                wl.remove(node);
             });
-
-            result.setInFact(node, in);
-
-            // transfer node
-            boolean changed = this.analysis.transferNode(node, in, result.getOutFact(node));
-            if (changed) {
-                // push back to worklist
-                workList.push(node);
-            }
         }
     }
 }

@@ -37,6 +37,7 @@ import pascal.taie.ir.stmt.Invoke;
 import pascal.taie.ir.stmt.Stmt;
 import pascal.taie.language.classes.JMethod;
 
+import java.util.LinkedList;
 import java.util.List;
 
 
@@ -78,10 +79,9 @@ public class InterConstantPropagation extends
 
     @Override
     protected boolean transferCallNode(Stmt stmt, CPFact in, CPFact out) {
-        out.clear();
+        CPFact outCopy = out.copy();
         out.copyFrom(in);
 
-        CPFact outCopy = out.copy();
         // kill the defined var
         stmt.getDef().ifPresent(def -> {
             if (def instanceof Var) {
@@ -105,7 +105,7 @@ public class InterConstantPropagation extends
     protected CPFact transferCallToReturnEdge(CallToReturnEdge<Stmt> edge, CPFact out) {
         CPFact c2rOut = out.copy();
         edge.getSource().getDef().ifPresent(def -> {
-            if (def instanceof Var) {
+            if (def instanceof Var && ConstantPropagation.canHoldInt((Var) def)) {
                 c2rOut.remove((Var) def);
             }
         });
@@ -130,15 +130,26 @@ public class InterConstantPropagation extends
     @Override
     protected CPFact transferReturnEdge(ReturnEdge<Stmt> edge, CPFact returnOut) {
         CPFact out = new CPFact();
-        edge.getReturnVars();
 
         edge.getCallSite().getDef().ifPresent(def -> {
-            if (def instanceof Var) {
-                edge.getReturnVars().forEach(returnVar -> {
-                    if (returnOut.get(returnVar) != null) {
-                        out.update((Var) def, returnOut.get(returnVar));
+            if (def instanceof Var && ConstantPropagation.canHoldInt((Var) def)) {
+                List<Var> rvs = new LinkedList<>(edge.getReturnVars());
+                if (rvs.size() == 1) {
+                    out.update((Var) def, returnOut.get(rvs.get(0)));
+                } else {
+                    boolean eq = true;
+                    for (int i = 1; i < rvs.size(); i++) {
+                        if (returnOut.get(rvs.get(i)) != returnOut.get(rvs.get(i - 1))) {
+                            eq = false;
+                            break;
+                        }
                     }
-                });
+                    if (eq) {
+                        out.update((Var) def, returnOut.get(rvs.get(0)));
+                    } else {
+                        out.update((Var) def, Value.getNAC());
+                    }
+                }
             }
         });
 

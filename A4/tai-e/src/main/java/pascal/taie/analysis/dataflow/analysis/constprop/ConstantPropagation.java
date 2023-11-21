@@ -27,7 +27,6 @@ import pascal.taie.analysis.graph.cfg.CFG;
 import pascal.taie.config.AnalysisConfig;
 import pascal.taie.ir.exp.*;
 import pascal.taie.ir.stmt.Stmt;
-import pascal.taie.language.type.ArrayType;
 import pascal.taie.language.type.PrimitiveType;
 import pascal.taie.language.type.Type;
 
@@ -51,7 +50,7 @@ public class ConstantPropagation extends
 
         // init the params to NAC for safety
         cfg.getIR().getParams().forEach(p -> {
-            if (!(p.getType() instanceof ArrayType)) {
+            if (canHoldInt(p)) {
                 fact.update(p, Value.getNAC());
             }
         });
@@ -76,8 +75,9 @@ public class ConstantPropagation extends
      */
     public Value meetValue(Value v1, Value v2) {
         Value ret = Value.getNAC();
-        if (v1.isNAC() || v2.isNAC()) {
-            ret = Value.getNAC();
+        if (v1.isConstant() && v2.isNAC()) {
+            // if the source value (v1) is constant, we should accept it.
+            ret = v1;
         } else if (v1.isUndef() || v2.isUndef()) {
             ret = v1.isUndef() ? v2 : v1;
         } else if (v1.isConstant() && v2.isConstant() && v1.getConstant() == v2.getConstant()) {
@@ -95,7 +95,9 @@ public class ConstantPropagation extends
         stmt.getDef().ifPresent(def -> {
             stmt.getUses().forEach(use -> {
                 // only processing Var, IntLiteral and BinaryExp
-                out.update((Var) def, evaluate(use, in));
+                if (def instanceof Var && canHoldInt((Var) def)) {
+                    out.update((Var) def, evaluate(use, in));
+                }
             });
         });
 

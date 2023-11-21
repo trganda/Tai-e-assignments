@@ -25,10 +25,8 @@ package pascal.taie.analysis.dataflow.solver;
 import pascal.taie.analysis.dataflow.analysis.DataflowAnalysis;
 import pascal.taie.analysis.dataflow.fact.DataflowResult;
 import pascal.taie.analysis.graph.cfg.CFG;
-import pascal.taie.analysis.graph.cfg.Edge;
 
-import java.util.List;
-import java.util.Stack;
+import java.util.*;
 
 class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
@@ -38,22 +36,23 @@ class WorkListSolver<Node, Fact> extends Solver<Node, Fact> {
 
     @Override
     protected void doSolveForward(CFG<Node> cfg, DataflowResult<Node, Fact> result) {
-        Stack<Node> workList = new Stack<>();
-        workList.add(cfg.getEntry());
+        List<Node> wl = new LinkedList<>(cfg.getNodes());
 
-        while (!workList.isEmpty()) {
-            Node node = workList.pop();
-            cfg.getOutEdgesOf(node).stream().map(Edge<Node>::getTarget).forEach(workList::add);
-            // meet out of all predecessors to the current node's in
-            Fact in = result.getInFact(node);
-            cfg.getPredsOf(node).forEach(n -> this.analysis.meetInto(result.getOutFact(n), in));
-            result.setInFact(node, in);
+        while (!wl.isEmpty()) {
+            wl.stream().findFirst().ifPresent(node -> {
+                // meet out of all predecessors to the current node's in
+                Fact in = result.getInFact(node);
+                cfg.getPredsOf(node).forEach(n -> this.analysis.meetInto(result.getOutFact(n), in));
+                result.setInFact(node, in);
 
-            // transfer node
-            boolean changed = this.analysis.transferNode(node, result.getInFact(node), result.getOutFact(node));
-            if (changed) {
-                workList.add(node);
-            }
+                // transfer node
+                boolean changed = this.analysis.transferNode(node, in, result.getOutFact(node));
+                if (changed) {
+                    // push successors to worklist
+                    wl.addAll(cfg.getSuccsOf(node));
+                }
+                wl.remove(node);
+            });
         }
     }
 
