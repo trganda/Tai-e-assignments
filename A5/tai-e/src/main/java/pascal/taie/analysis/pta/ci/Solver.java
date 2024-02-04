@@ -290,10 +290,8 @@ class Solver {
     private void processCall(Var var, Obj recv) {
         var.getInvokes().forEach(invoke -> {
             JMethod m = this.resolveCallee(recv, invoke);
-            if (!m.isStatic()) {
-                Pointer p = this.pointerFlowGraph.getVarPtr(m.getIR().getThis());
-                this.workList.addEntry(p, new PointsToSet(recv));
-            }
+            Pointer p = this.pointerFlowGraph.getVarPtr(m.getIR().getThis());
+            this.workList.addEntry(p, new PointsToSet(recv));
             if (!this.callGraph.getCalleesOf(invoke).contains(m)) {
                 this.callGraph.addEdge(new Edge<>(CallGraphs.getCallKind(invoke.getInvokeExp()), invoke, m));
                 this.addReachable(m);
